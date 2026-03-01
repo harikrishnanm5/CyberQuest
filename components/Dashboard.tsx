@@ -407,6 +407,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
    const handleAcceptAssignment = async () => {
       if (!result) return;
       setLoading(true);
+
+      // 1. Mark as completed IMMEDIATELY to unlock navigation and sidebar
+      setAssessmentCompleted(true);
+
       try {
          // Use score-based role assignment
          const assignedRole = getRoleByScore(result.overallScore);
@@ -426,11 +430,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
          };
 
          setUserProfile(profile);
-         setAssessmentCompleted(true); // Mark assessment as completed
-         // Redirect to Overview after assignment
+
+         // 2. Clear result to avoid re-triggering this view if they come back to home
+         // setResult(null); // Optional: keep result for stats but move view
+
+         // 3. Force navigation to overview
          setView('overview');
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+      } catch (e) {
+         console.error('Assignment acceptance error:', e);
+         // Fallback navigation so they aren't stuck
+         setView('overview');
+      } finally {
+         setLoading(false);
+      }
    };
 
    const startMission = async (mission: Mission) => {
