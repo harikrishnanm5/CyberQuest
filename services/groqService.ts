@@ -60,12 +60,9 @@ THE 6 DOMAINS (each maps to one expert and to one axis on the final hexagon char
 5. Cloud_Defense -> "Azure" – AWS/Azure/GCP security, IAM, shared responsibility, cloud threats
 6. Threat_Intel -> "The Watcher" – APTs, threat actors, incident response, indicators, MITRE ATT&CK
 
-ASSESSMENT RULES:
-- Every question must MEASURE real knowledge in that domain (concepts, definitions, best practices, or correct commands). There must be exactly ONE correct answer so we can score the student.
-- Vary difficulty: include easy (basics), medium (application), and hard (depth) so the hexagon reflects true level.
 - ALL questions MUST be multiple_choice with exactly 4 options (A, B, C, D). Include "correctAnswer" so we can compute per-domain scores.
 - Adopt the speaker's PERSONALITY in the 'text'. Each expert asks 5 questions in a row before the next takes over.
-- Use correct spelling and grammar in "text" and "options". Proofread so there are no typos (e.g. "the" not "teh", "receive" not "recieve").
+- Use perfect spelling and grammar in "text" and "options". Proofread all content carefully before outputting JSON.
 
 OUTPUT FORMAT (JSON ONLY, no markdown):
 {
@@ -77,6 +74,25 @@ OUTPUT FORMAT (JSON ONLY, no markdown):
   "correctAnswer": "A" or "B" or "C" or "D",
   "difficulty": "easy" | "medium" | "hard"
 }`;
+
+/**
+ * Robustly extract JSON from AI response (strips markdown fences and conversational filler)
+ */
+const sanitizeJson = (raw: string): string => {
+  let cleaned = raw.trim();
+  // Remove markdown fences
+  if (cleaned.includes('```')) {
+    const match = cleaned.match(/```(?:json)?([\s\S]*?)```/);
+    if (match && match[1]) cleaned = match[1].trim();
+  }
+  // If there's still extra text, find the first '{' and last '}'
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  return cleaned;
+};
 
 export const startInterviewSession = async (): Promise<InterviewQuestion> => {
   conversationHistory = [
@@ -91,10 +107,16 @@ export const startInterviewSession = async (): Promise<InterviewQuestion> => {
 
     // Priority: LM Studio -> ONNX -> Groq (via aliceService.chat)
     const content = await aliceService.chat(messages as any, true);
-    conversationHistory.push({ role: 'user', content: 'The candidate has entered. Titan, begin with a Network_Ops question.' });
-    conversationHistory.push({ role: 'assistant', content });
 
-    const data = JSON.parse(content);
+    const sanitized = sanitizeJson(content);
+    const data = JSON.parse(sanitized);
+
+    // Only store clean text in history to avoid JSON bloat for the 1B model
+    const cleanText = fixSpelling(String(data.text ?? ''));
+    conversationHistory = [
+      { role: 'system', content: INTERVIEW_SYSTEM_PROMPT },
+      { role: 'assistant', content: cleanText }
+    ];
 
     // Track the correct answer for the first question
     lastCorrectAnswer = data.correctAnswer || '';
@@ -181,13 +203,14 @@ export const submitAnswerAndGetNext = async (
 
     // Priority: LM Studio -> ONNX -> Groq (via aliceService.chat)
     const content = await aliceService.chat(messages as any, true);
-    conversationHistory.push({ role: 'user', content: prompt });
-    conversationHistory.push({ role: 'assistant', content });
 
-    const data = JSON.parse(content);
+    const sanitized = sanitizeJson(content);
+    const data = JSON.parse(sanitized);
 
     if (data.metrics || isLastQuestion) {
-      // Ensure the AI didn't hallucinate scores different from our tracker
+      // Clear history on completion as requested - only keep the score
+      conversationHistory = [];
+
       const finalResult = data as AssessmentResult;
       finalResult.metrics = finalResult.metrics.map(m => ({
         ...m,
@@ -199,13 +222,31 @@ export const submitAnswerAndGetNext = async (
     } else {
       // Capture correct answer for the NEXT question
       lastCorrectAnswer = data.correctAnswer || '';
-      const text = fixSpelling(String(data.text ?? ''));
-      const options = Array.isArray(data.options) ? data.options.map((o: string) => fixSpelling(String(o))) : data.options;
+
+      const options = Array.isArray(data.options) ? data.options.map((o: string) => fixSpelling(String(o))) : [];
+      const cleanNextText = fixSpelling(String(data.text ?? ''));
+
+      // Prune history: keep system prompt + last 2 turns (4 messages) to stay within 1B model's context window
+      // Use a marker for the user's last answer to keep history clean
+      const lastAssistantMsg = [...conversationHistory].reverse().find(m => m.role === 'assistant');
+      const prevQText = lastAssistantMsg?.content || 'Question';
+
+      conversationHistory.push({ role: 'user', content: `Answer to "${prevQText.substring(0, 50)}...": ${previousAnswer}` });
+      conversationHistory.push({ role: 'assistant', content: cleanNextText });
+
+      // Sliding window: System + last 4 messages
+      if (conversationHistory.length > 5) {
+        conversationHistory = [
+          conversationHistory[0],
+          ...conversationHistory.slice(-4)
+        ];
+      }
+
       return {
         nextQuestion: {
           id: data.id || questionNumber + 1,
           topic: data.topic,
-          text,
+          text: cleanNextText,
           type: 'multiple_choice',
           options,
           difficulty: data.difficulty || 'medium'
@@ -237,9 +278,10 @@ export const submitAnswerAndGetNext = async (
       nextQuestion: {
         id: nextQ,
         topic: fallbackTopic,
-        text: 'Connection restored. Please select your answer.',
+        text: 'Systems link restored. Please answer the following question to continue.',
         type: 'multiple_choice',
-        options: ['A) Option A', 'B) Option B', 'C) Option C', 'D) Option D'],
+        options: ['A) Check network status', 'B) Analyze logs', 'C) Verify credentials', 'D) Continue operation'],
+        correctAnswer: 'D',
         difficulty: 'medium'
       }
     };
@@ -295,8 +337,8 @@ export const generateCareerPath = async (result: AssessmentResult): Promise<User
       response_format: { type: 'json_object' }
     });
 
-    const content = response.choices[0]?.message?.content || '';
-    return JSON.parse(content) as UserProfile;
+    const sanitized = sanitizeJson(content);
+    return JSON.parse(sanitized) as UserProfile;
   } catch (error) {
     console.error('Career generation error:', error);
     return {

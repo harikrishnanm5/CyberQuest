@@ -42,6 +42,7 @@ export interface InterviewQuestion {
   text: string;
   type: 'multiple_choice' | 'console_command';
   options?: string[]; // For multiple choice
+  correctAnswer?: string; // For internal score tracking (optional in UI)
   validationRegex?: string; // For console command (handled by AI usually, but good for local check)
   difficulty: 'easy' | 'medium' | 'hard';
 }
