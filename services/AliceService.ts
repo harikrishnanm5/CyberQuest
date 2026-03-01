@@ -30,7 +30,9 @@ class AliceService {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     model: 'bartowski/llama-3.2-1b-instruct',
-                    messages,
+                    messages: jsonMode
+                        ? [{ role: 'system', content: 'JSON_ONLY_MODE: Respond ONLY with a valid JSON object. No other text.' }, ...messages]
+                        : messages,
                     temperature: 0.7,
                     response_format: jsonMode ? { type: 'json_object' } : undefined
                 }),
@@ -121,7 +123,7 @@ class AliceService {
                 });
             }
             return JSON.stringify({
-                text: "ALICE (ONNX) suggests you look at the source code of the login page.",
+                text: 'Systems link restored. Please answer the following question to continue.',
                 topic: "Web_Security",
                 options: ["A) Check headers", "B) View source", "C) Inspect cookies", "D) Brute force"],
                 correctAnswer: "B",
