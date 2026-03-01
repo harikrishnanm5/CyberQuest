@@ -269,9 +269,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             if (isMounted && data) {
                if (data.assessmentResult) {
                   setResult(data.assessmentResult);
+                  setAssessmentCompleted(true);
                }
                if (data.userProfile) {
                   setUserProfile(data.userProfile);
+                  // Auto-redirect to overview if they've already done everything
+                  if (view === 'home') setView('overview');
                }
             }
          } catch (error) {
