@@ -123,7 +123,7 @@ class AliceService {
                 });
             }
             return JSON.stringify({
-                text: 'Systems link restored. Please answer the following question to continue.',
+                text: 'Local link stable. Please proceed with the next question.',
                 topic: "Web_Security",
                 options: ["A) Check headers", "B) View source", "C) Inspect cookies", "D) Brute force"],
                 correctAnswer: "B",
