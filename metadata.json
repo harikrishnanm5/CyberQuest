@@ -1,0 +1,5 @@
+{
+  "name": "Cyber Quest",
+  "description": "An adaptive, AI-powered gamified learning platform for cybersecurity students featuring real-time AI mentorship and CTF challenges.",
+  "requestFramePermissions": []
+}

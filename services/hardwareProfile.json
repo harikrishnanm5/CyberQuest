@@ -1,0 +1,11 @@
+{
+    "ram_gb": 23.69,
+    "npu": null,
+    "gpu_name": null,
+    "vram_gb": 0,
+    "hardware": "Low-End_Legacy",
+    "model": "SmolLM2-1.7B",
+    "quant": "Q4_0",
+    "use_case": "Fallback basic QA",
+    "opt": "CPU Inference"
+}
