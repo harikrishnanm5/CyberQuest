@@ -337,6 +337,7 @@ export const generateCareerPath = async (result: AssessmentResult): Promise<User
       response_format: { type: 'json_object' }
     });
 
+    const content = response.choices[0]?.message?.content || '';
     const sanitized = sanitizeJson(content);
     return JSON.parse(sanitized) as UserProfile;
   } catch (error) {
