@@ -4,7 +4,8 @@ import { Brain, Network, ShieldAlert, Bug, Globe, Send, Loader2, Award, ChevronR
 import { cn } from '@/src/lib/utils';
 import * as aiService from '../services/aiService';
 import { SYSTEM_PROMPTS } from '../services/prompts';
-import { learnerProfile } from '../store/learnerProfile';
+import { useLearnerProfile } from '../store/learnerProfile';
+import DomainSelection from './DomainSelection';
 
 interface OnboardingProps {
   onComplete: (domain: string, profile: any) => void;
@@ -18,7 +19,8 @@ const domains = [
 ];
 
 export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
-  const [step, setStep] = useState<'intro' | 'experience' | 'interview' | 'result'>('intro');
+  const { state: learnerProfile, dispatch } = useLearnerProfile();
+  const [step, setStep] = useState<'intro' | 'domain' | 'experience' | 'interview' | 'result'>('intro');
   const [selectedLevel, setSelectedLevel] = useState<'A' | 'B' | 'C' | null>(null);
   const [chat, setChat] = useState<{ role: 'axiom' | 'player', text: string }[]>([]);
   const [lastFeedback, setLastFeedback] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   }, [chat, isThinking]);
 
   const handleStartMission = () => {
-    setStep('experience');
+    setStep('domain');
   };
 
   const handleLevelSelect = (level: 'A' | 'B' | 'C') => {
@@ -196,6 +198,18 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               {/* Background Glow */}
               <div className="absolute -top-40 -left-40 w-80 h-80 bg-blue-500/5 blur-[100px] pointer-events-none" />
             </div>
+          </motion.div>
+        )}
+
+        {step === 'domain' && (
+          <motion.div
+            key="domain"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="flex-1 flex flex-col items-center justify-center p-8 w-full"
+          >
+            <DomainSelection onComplete={() => setStep('experience')} />
           </motion.div>
         )}
 

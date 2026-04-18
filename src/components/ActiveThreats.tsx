@@ -19,7 +19,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import * as aiService from '../services/aiService';
 import { SYSTEM_PROMPTS } from '../services/prompts';
-import { learnerProfile } from '../store/learnerProfile';
+import { useLearnerProfile } from '../store/learnerProfile';
 
 interface Threat {
   id: string;
@@ -32,6 +32,7 @@ interface Threat {
 }
 
 export const ActiveThreats: React.FC = () => {
+  const { state: learnerProfile } = useLearnerProfile();
   const [threats, setThreats] = useState<Threat[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(new Date().toLocaleTimeString());

@@ -3,7 +3,7 @@ import { Terminal as TerminalIcon, Send, Brain, Loader2, AlertCircle } from 'luc
 import { cn } from '@/src/lib/utils';
 import * as aiService from '../services/aiService';
 import { SYSTEM_PROMPTS } from '../services/prompts';
-import { learnerProfile } from '../store/learnerProfile';
+import { useLearnerProfile } from '../store/learnerProfile';
 
 interface TerminalLine {
   type: 'prompt' | 'command' | 'output' | 'warning' | 'error' | 'cipher';
@@ -12,6 +12,7 @@ interface TerminalLine {
 }
 
 export const Terminal: React.FC = () => {
+  const { state: learnerProfile } = useLearnerProfile();
   const [history, setHistory] = useState<TerminalLine[]>([
     { type: 'output', text: 'CipherOS v4.2.0-secure (x86_64)', timestamp: '08:00:21' },
     { type: 'output', text: 'Initializing security kernel...', timestamp: '08:00:22' },
