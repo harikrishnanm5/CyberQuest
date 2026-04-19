@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShieldAlert, 
   MapPin, 
@@ -33,37 +33,65 @@ interface Threat {
 
 export const ActiveThreats: React.FC = () => {
   const { state: learnerProfile } = useLearnerProfile();
-  const [threats, setThreats] = useState<Threat[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState(new Date().toLocaleTimeString());
 
-  const [axiomMessages, setAxiomMessages] = useState<{role: 'axiom' | 'player', text: string}[]>([
-    { role: 'axiom', text: "Analyzing global telemetry... Look at those packet headers in Mission 01. What does the mismatch in the SMTP 'From' field suggest about the relay's trust level?" }
-  ]);
+  const [axiomMessages, setAxiomMessages] = useState<{role: 'axiom' | 'player'; text: string; flash?: boolean}[]>([]);
   const [playerInput, setPlayerInput] = useState("");
   const [isAxiomThinking, setIsAxiomThinking] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const handlePlayerMessage = async () => {
-    if (!playerInput.trim() || isAxiomThinking) return;
-    const msg = playerInput;
-    setPlayerInput("");
-    setAxiomMessages(prev => [...prev, { role: 'player', text: msg }]);
+  useEffect(() => {
+    if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [axiomMessages, isAxiomThinking]);
+
+  const sendToAxiom = async (question: string) => {
+    if (isAxiomThinking) return;
     setIsAxiomThinking(true);
-
     try {
       const response = await aiService.complete({
         agent: 'mentor',
         systemPrompt: SYSTEM_PROMPTS.mentor(learnerProfile),
-        userMessage: msg,
+        userMessage: question,
         learnerProfile
       });
-
-      setAxiomMessages(prev => [...prev, { role: 'axiom', text: response }]);
+      setAxiomMessages(prev => [...prev, { role: 'axiom', text: response, flash: true }]);
+      // Remove flash flag after animation
+      setTimeout(() => {
+        setAxiomMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, flash: false } : m));
+      }, 800);
     } catch (err: any) {
       setAxiomMessages(prev => [...prev, { role: 'axiom', text: `[SYSTEM ERROR] ${err.message}` }]);
     } finally {
       setIsAxiomThinking(false);
     }
+  };
+
+  // Opening observation on mission start
+  useEffect(() => {
+    const openingMsg = `Mission started. Domain: ${learnerProfile.domain}. Level: ${learnerProfile.actualLevel}. Open with a single Socratic observation to orient the analyst.`;
+    sendToAxiom(openingMsg);
+  }, []);
+
+  // Window event listener for terminal-triggered AXIOM requests
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { question, isHint } = (e as CustomEvent).detail;
+      if (!question) return;
+      if (!isHint) {
+        // Direct question — echo it as a player message
+        setAxiomMessages(prev => [...prev, { role: 'player', text: question }]);
+      }
+      sendToAxiom(question);
+    };
+    window.addEventListener('axiom-request', handler);
+    return () => window.removeEventListener('axiom-request', handler);
+  }, [learnerProfile, isAxiomThinking]);
+
+  const handlePlayerMessage = async () => {
+    if (!playerInput.trim() || isAxiomThinking) return;
+    const msg = playerInput.trim();
+    setPlayerInput("");
+    setAxiomMessages(prev => [...prev, { role: 'player', text: msg }]);
+    await sendToAxiom(msg);
   };
 
   return (
@@ -85,8 +113,10 @@ export const ActiveThreats: React.FC = () => {
       {/* Middle: Chat Bubbles */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-black/10">
         {axiomMessages.map((msg, i) => (
-          <div 
-            key={i} 
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
             className={cn(
               "flex flex-col gap-1.5 max-w-[85%]",
               msg.role === 'player' ? 'ml-auto items-end' : 'items-start'
@@ -95,28 +125,56 @@ export const ActiveThreats: React.FC = () => {
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 px-1">
               {msg.role === 'axiom' ? 'MENTOR' : 'YOU'}
             </span>
-            <div className={cn(
-              "p-3 rounded-2xl text-[11px] leading-relaxed shadow-xl border backdrop-blur-sm",
-              msg.role === 'axiom' 
-                ? "bg-blue-600/10 border-blue-500/20 text-blue-100 rounded-tl-none" 
-                : "bg-accent/10 border-accent/20 text-accent rounded-tr-none"
-            )}>
+            <motion.div
+              animate={msg.flash ? { boxShadow: ['0 0 0px rgba(0,255,157,0)', '0 0 16px rgba(0,255,157,0.4)', '0 0 0px rgba(0,255,157,0)'] } : {}}
+              transition={{ duration: 0.7 }}
+              className={cn(
+                "p-3 rounded-2xl text-[11px] leading-relaxed shadow-xl border backdrop-blur-sm",
+                msg.role === 'axiom'
+                  ? "bg-blue-600/10 border-blue-500/20 text-blue-100 rounded-tl-none"
+                  : "bg-accent/10 border-accent/20 text-accent rounded-tr-none"
+              )}
+            >
               {msg.text}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         ))}
-        {isAxiomThinking && (
-          <div className="flex items-center gap-2 animate-pulse text-blue-400">
-            <Brain size={12} />
-            <span className="text-[9px] font-bold uppercase tracking-widest">Axiom is thinking...</span>
-          </div>
-        )}
+
+        {/* AXIOM IS ANALYSING... pulsing dots */}
+        <AnimatePresence>
+          {isAxiomThinking && (
+            <motion.div
+              key="analysing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center gap-2 text-accent"
+            >
+              <Brain size={12} className="shrink-0" />
+              <span className="text-[9px] font-black uppercase tracking-widest">AXIOM IS ANALYSING</span>
+              <span className="flex gap-0.5">
+                {[0, 1, 2].map(i => (
+                  <motion.span
+                    key={i}
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.2 }}
+                    className="w-1 h-1 rounded-full bg-accent inline-block"
+                  />
+                ))}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div ref={chatEndRef} />
       </div>
 
       {/* Bottom Input */}
       <div className="p-4 bg-white/[0.01] border-t border-white/5">
+        <div className="text-[8px] text-gray-600 font-mono mb-2 uppercase tracking-widest">
+          Or type <span className="text-accent">AXIOM [question]</span> in the terminal
+        </div>
         <div className="relative group">
-          <input 
+          <input
             type="text"
             value={playerInput}
             onChange={(e) => setPlayerInput(e.target.value)}
@@ -124,7 +182,7 @@ export const ActiveThreats: React.FC = () => {
             placeholder="Ask AXIOM anything..."
             className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-[11px] text-gray-200 focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-gray-600 shadow-inner"
           />
-          <button 
+          <button
             onClick={handlePlayerMessage}
             disabled={isAxiomThinking || !playerInput.trim()}
             className="absolute right-2 top-1.5 p-1 text-gray-500 hover:text-blue-400 disabled:opacity-0 transition-all"

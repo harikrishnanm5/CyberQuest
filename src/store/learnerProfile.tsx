@@ -29,7 +29,7 @@ type Action =
   | { type: 'SET_DOMAIN'; payload: Domain }
   | { type: 'SET_SELF_LEVEL'; payload: SelfLevel }
   | { type: 'SET_ACTUAL_LEVEL'; payload: ActualLevel }
-  | { type: 'UPDATE_SKILL'; payload: { skill: keyof LearnerProfile['skillMap']; value: number } }
+  | { type: 'UPDATE_SKILL'; payload: { skill: keyof LearnerProfile['skillMap']; delta: number } }
   | { type: 'ADD_SESSION'; payload: string }
   | { type: 'SET_MISSION'; payload: string | null }
   | { type: 'ADD_XP'; payload: number };
@@ -69,7 +69,7 @@ function learnerProfileReducer(state: LearnerProfile, action: Action): LearnerPr
         ...state,
         skillMap: {
           ...state.skillMap,
-          [action.payload.skill]: action.payload.value,
+          [action.payload.skill]: state.skillMap[action.payload.skill] + action.payload.delta,
         },
       };
     case 'ADD_SESSION':
