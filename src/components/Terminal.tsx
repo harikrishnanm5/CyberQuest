@@ -75,6 +75,15 @@ export const Terminal: React.FC<TerminalProps> = ({
     };
   }, [input]);
 
+  const formatCipherResponse = (response: string) => {
+    try {
+      const parsed = JSON.parse(response);
+      return `${parsed.attack_message}\n\n"${parsed.taunt}"`;
+    } catch {
+      return response;
+    }
+  };
+
   const triggerCipherResponse = async (userMsg: string, isTaunt = false) => {
     setIsCipherThinking(true);
     try {
@@ -86,7 +95,7 @@ export const Terminal: React.FC<TerminalProps> = ({
           : `Student entered: "${userMsg}". Mock them.`,
         learnerProfile
       });
-      addLine({ type: 'cipher', text: `[CIPHER]: ${response}` });
+      addLine({ type: 'cipher', text: `[CIPHER]: ${formatCipherResponse(response)}` });
     } catch (err: any) {
       console.error("Cipher failure:", err);
     } finally {
@@ -105,7 +114,7 @@ export const Terminal: React.FC<TerminalProps> = ({
           userMessage: "Initialize the attack. Tell the student you've breached their perimeter and taunt their specialty.",
           learnerProfile
         });
-        addLine({ type: 'cipher', text: `[CIPHER]: ${response}` });
+        addLine({ type: 'cipher', text: `[CIPHER]: ${formatCipherResponse(response)}` });
       } finally {
         setIsCipherThinking(false);
       }

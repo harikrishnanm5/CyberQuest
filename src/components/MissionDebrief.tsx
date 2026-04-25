@@ -96,8 +96,17 @@ const MissionDebrief: React.FC<MissionDebriefProps> = ({
           userMessage: `Mission outcome: ${outcome.toUpperCase()}. Domain: ${learnerProfile.domain}. Commands used: ${commandsUsed.join(', ') || 'none'}. Time taken: ${timeTaken}s. Level: ${learnerProfile.actualLevel}. Write a 3–4 sentence post-mortem that covers what the analyst did well, what they missed, and one specific improvement.`,
           learnerProfile,
         });
+        
+        let debriefText = response;
+        try {
+          const parsed = JSON.parse(response);
+          debriefText = parsed.explanation || response;
+        } catch (e) {
+          // Fallback to raw text
+        }
+        
         // Split into lines for stagger reveal
-        const lines = response
+        const lines = debriefText
           .split(/(?<=[.!?])\s+/)
           .map(s => s.trim())
           .filter(Boolean);

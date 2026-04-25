@@ -53,7 +53,14 @@ export const ActiveThreats: React.FC = () => {
         userMessage: question,
         learnerProfile
       });
-      setAxiomMessages(prev => [...prev, { role: 'axiom', text: response, flash: true }]);
+      let formattedText = response;
+      try {
+        const parsed = JSON.parse(response);
+        formattedText = `${parsed.hint} ${parsed.follow_up_question}`;
+      } catch (e) {
+        // Fallback to raw text
+      }
+      setAxiomMessages(prev => [...prev, { role: 'axiom', text: formattedText, flash: true }]);
       // Remove flash flag after animation
       setTimeout(() => {
         setAxiomMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, flash: false } : m));
