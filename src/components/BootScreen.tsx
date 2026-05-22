@@ -18,7 +18,7 @@ const bootLogs = [
 ];
 
 export const BootScreen: React.FC<BootScreenProps> = ({ onComplete }) => {
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<{ text: string; time: string }[]>([]);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Initializing CipherOS Kernel...');
 
@@ -26,7 +26,10 @@ export const BootScreen: React.FC<BootScreenProps> = ({ onComplete }) => {
     let currentLogIndex = 0;
     const logInterval = setInterval(() => {
       if (currentLogIndex < bootLogs.length) {
-        setLogs(prev => [...prev, bootLogs[currentLogIndex]]);
+        setLogs(prev => [...prev, { 
+          text: bootLogs[currentLogIndex], 
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+        }]);
         currentLogIndex++;
         setProgress((currentLogIndex / bootLogs.length) * 100);
       } else {
@@ -77,8 +80,8 @@ export const BootScreen: React.FC<BootScreenProps> = ({ onComplete }) => {
               animate={{ opacity: 1, x: 0 }}
               className="text-xs flex gap-3 text-gray-400"
             >
-              <span className="text-accent/50">[{new Date().toLocaleTimeString()}]</span>
-              <span className={(log || '').includes('WARN') ? 'text-threat' : 'text-gray-300'}>{log}</span>
+              <span className="text-accent/50">[{log.time}]</span>
+              <span className={(log.text || '').includes('WARN') ? 'text-threat' : 'text-gray-300'}>{log.text}</span>
             </motion.div>
           ))}
           {logs.length < bootLogs.length && (

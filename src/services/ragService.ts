@@ -9,7 +9,7 @@
  */
 
 export const queryThreats = async (domain: string, difficulty: string): Promise<string> => {
-  const QDRANT_URL = "http://localhost:6333";
+  const QDRANT_URL = import.meta.env.VITE_QDRANT_URL || "http://localhost:6333";
   const COLLECTION = "threat_intel";
 
   try {

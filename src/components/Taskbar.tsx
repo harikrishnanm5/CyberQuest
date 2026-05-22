@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Terminal, Mail, Network, Activity, ShieldAlert, Cpu } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 
-export const Taskbar: React.FC = () => {
+interface TaskbarProps {
+  activeTab: 'terminal' | 'mail' | 'network' | 'logs';
+  onTabChange: (tab: 'terminal' | 'mail' | 'network' | 'logs') => void;
+}
+
+import { KaliMenu } from './KaliMenu';
+
+interface TaskbarProps {
+  activeTab: 'terminal' | 'mail' | 'network' | 'logs';
+  onTabChange: (tab: 'terminal' | 'mail' | 'network' | 'logs') => void;
+  onLaunchTool: (cmd: string) => void;
+}
+
+export const Taskbar: React.FC<TaskbarProps> = ({ activeTab, onTabChange, onLaunchTool }) => {
   const [time, setTime] = useState(new Date());
+  const [isKaliMenuOpen, setIsKaliMenuOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -12,24 +27,66 @@ export const Taskbar: React.FC = () => {
   }, []);
 
   return (
-    <header className="h-10 bg-taskbar border-b border-white/5 flex items-center px-4 justify-between select-none z-50">
+    <header className="h-10 bg-taskbar border-b border-white/5 flex items-center px-4 justify-between select-none z-[100] relative">
       <div className="flex items-center gap-6">
-        {/* OS Logo & Hostname */}
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center p-1 shadow-[0_0_10px_rgba(29,158,117,0.3)]">
-            <Cpu className="text-taskbar w-3 h-3" strokeWidth={3} />
-          </div>
-          <span className="text-xs font-bold text-accent tracking-widest uppercase">
-            user@soc-workstation
+        {/* Kali Logo & Hostname */}
+        <div className="flex items-center gap-3 relative">
+          <button 
+            onClick={() => setIsKaliMenuOpen(!isKaliMenuOpen)}
+            className={cn(
+              "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
+              isKaliMenuOpen ? "bg-accent shadow-[0_0_20px_rgba(29,158,117,0.5)]" : "bg-accent/20 hover:bg-accent/40"
+            )}
+          >
+            <Cpu className={cn("w-4 h-4", isKaliMenuOpen ? "text-taskbar" : "text-accent")} strokeWidth={3} />
+          </button>
+          
+          <AnimatePresence>
+            {isKaliMenuOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-[90]" 
+                  onClick={() => setIsKaliMenuOpen(false)} 
+                />
+                <KaliMenu 
+                  onLaunch={onLaunchTool} 
+                  onClose={() => setIsKaliMenuOpen(false)} 
+                />
+              </>
+            )}
+          </AnimatePresence>
+
+          <span className="text-[10px] font-black text-accent tracking-[0.2em] uppercase">
+            user@soc
           </span>
         </div>
 
         {/* App Pills */}
         <nav className="flex items-center gap-1 ml-4">
-          <AppPill icon={<Terminal size={14} />} label="Terminal" active />
-          <AppPill icon={<Mail size={14} />} label="Mail" />
-          <AppPill icon={<Network size={14} />} label="Network" />
-          <AppPill icon={<Activity size={14} />} label="Logs" />
+          <AppPill 
+            icon={<Terminal size={14} />} 
+            label="Terminal" 
+            active={activeTab === 'terminal'} 
+            onClick={() => onTabChange('terminal')} 
+          />
+          <AppPill 
+            icon={<Mail size={14} />} 
+            label="Mail" 
+            active={activeTab === 'mail'} 
+            onClick={() => onTabChange('mail')} 
+          />
+          <AppPill 
+            icon={<Network size={14} />} 
+            label="Network" 
+            active={activeTab === 'network'} 
+            onClick={() => onTabChange('network')} 
+          />
+          <AppPill 
+            icon={<Activity size={14} />} 
+            label="Logs" 
+            active={activeTab === 'logs'} 
+            onClick={() => onTabChange('logs')} 
+          />
         </nav>
       </div>
 
@@ -55,11 +112,13 @@ interface AppPillProps {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
+  onClick: () => void;
 }
 
-const AppPill: React.FC<AppPillProps> = ({ icon, label, active }) => {
+const AppPill: React.FC<AppPillProps> = ({ icon, label, active, onClick }) => {
   return (
     <div
+      onClick={onClick}
       className={cn(
         "flex items-center gap-2 px-3 py-1 rounded transition-all cursor-pointer",
         active 

@@ -67,7 +67,8 @@ const validateAgentSchema = (agent: string, parsed: any) => {
       }
       break;
     case 'axiom':
-      if (!parsed.mission_title || !parsed.objective || !Array.isArray(parsed.commands) || !parsed.difficulty) {
+      // Support both the general mission schema and the generator's schema
+      if (!parsed.objective || !Array.isArray(parsed.expectedCommands || parsed.commands)) {
         throw new Error("AXIOM contract violation: Missing or invalid fields.");
       }
       break;
@@ -101,12 +102,27 @@ export const complete = async ({
     debrief: 0.5
   };
 
-  const jsonInstructions = `\nOUTPUT RULES: You MUST output valid JSON exactly matching this schema: 
-  ${agent === 'cipher' ? '{ "attack_message": string, "hint_keyword": string, "taunt": string }' :
-    agent === 'axiom' ? '{ "mission_title": string, "objective": string, "commands": string[], "difficulty": string }' :
-    agent === 'mentor' ? '{ "hint": string, "follow_up_question": string, "revealed_answer": false }' :
-    '{ "correct": boolean, "explanation": string, "cve_ref": string, "xp_awarded": number }'
-  }\nNo conversational filler. Return only the JSON object.`;
+  const isAxiomChat = systemPrompt.includes('NO JSON') || 
+                      userMessage.includes('---QUESTION---') || 
+                      userMessage.includes('User Answer:');
+  const isAxiomProfile = systemPrompt.includes('Output JSON profile only');
+
+  let jsonInstructions = '';
+  if (!isAxiomChat) {
+    let schema = '';
+    if (agent === 'cipher') schema = '{ "attack_message": string, "hint_keyword": string, "taunt": string }';
+    else if (agent === 'axiom') {
+      if (isAxiomProfile) {
+        schema = '{ "level": string, "placement_note": string, "strong_areas": string[] }';
+      } else {
+        schema = '{ "targetOrgType": string, "attackVector": string, "objective": string, "timeLimit": string, "expectedCommands": string[], "missionIdSuffix": string }';
+      }
+    }
+    else if (agent === 'mentor') schema = '{ "hint": string, "follow_up_question": string, "revealed_answer": false }';
+    else schema = '{ "correct": boolean, "explanation": string, "cve_ref": string, "xp_awarded": number }';
+
+    jsonInstructions = `\nOUTPUT RULES: You MUST output valid JSON exactly matching this schema: \n  ${schema}\nNo conversational filler. Return only the JSON object.`;
+  }
 
   let finalSystemPrompt = systemPrompt + jsonInstructions;
 
@@ -114,7 +130,7 @@ export const complete = async ({
 
   if (agent === 'cipher' || agent === 'debrief') {
     const domain = learnerProfile?.domain || 'general';
-    const level = learnerProfile?.level || 'beginner';
+    const level = learnerProfile?.actualLevel || 'beginner';
     const ragContext = await queryThreats(domain, level);
     finalSystemPrompt = ragContext + finalSystemPrompt;
   }
@@ -138,7 +154,7 @@ export const complete = async ({
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages: [
           { role: 'system', content: finalSystemPrompt },
           { role: 'user', content: userMessage }
@@ -149,7 +165,8 @@ export const complete = async ({
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
@@ -157,6 +174,11 @@ export const complete = async ({
 
   } catch (error) {
     console.error("AI Service Internal Error:", error);
-    return JSON.stringify({ error: "Critical failure", details: error instanceof Error ? error.message : 'Unknown error' });
+    
+    // Fallback to mock data if network fails or API errors out
+    const mocks = MOCK_JSON_RESPONSES[agent] || [JSON.stringify({ error: "No mock data" })];
+    const randomIndex = Math.floor(Math.random() * mocks.length);
+    console.warn(`[AI Service] Network failure or error detected. Falling back to mock data for agent: ${agent}`);
+    return mocks[randomIndex];
   }
 };
