@@ -127,8 +127,12 @@ export const complete = async ({
   let finalSystemPrompt = systemPrompt + jsonInstructions;
 
   // --- 2. INJECT RAG CONTEXT (CIPHER AND DEBRIEF) ---
+  // RAG is currently disabled pending a collection-name fix and a real
+  // embedding pipeline (see ragService.ts header). Set VITE_ENABLE_RAG=true
+  // in your env to opt in once those are resolved.
+  const enableRag = import.meta.env.VITE_ENABLE_RAG === 'true';
 
-  if (agent === 'cipher' || agent === 'debrief') {
+  if (enableRag && (agent === 'cipher' || agent === 'debrief')) {
     const domain = learnerProfile?.domain || 'general';
     const level = learnerProfile?.actualLevel || 'beginner';
     const ragContext = await queryThreats(domain, level);

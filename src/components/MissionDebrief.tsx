@@ -53,7 +53,10 @@ const SKILL_LABELS: Record<keyof LearnerProfile['skillMap'], string> = {
 interface MissionDebriefProps {
   outcome: 'success' | 'failure';
   missionId: string;
+  /** Commands the terminal flagged as matching an expectedCommand. */
   commandsUsed: string[];
+  /** Every command the student actually submitted (correct + incorrect). */
+  allCommandsSubmitted: string[];
   timeTaken: number;
   onNextMission: () => void;
   onReturnToBase: () => void;
@@ -64,6 +67,7 @@ const MissionDebrief: React.FC<MissionDebriefProps> = ({
   outcome,
   missionId,
   commandsUsed,
+  allCommandsSubmitted,
   timeTaken,
   onNextMission,
   onReturnToBase,
@@ -77,8 +81,12 @@ const MissionDebrief: React.FC<MissionDebriefProps> = ({
   const isSuccess  = outcome === 'success';
   const accentColor = isSuccess ? 'text-accent' : 'text-red-500';
   const headerText  = `MISSION ${isSuccess ? 'SUCCESS' : 'FAILURE'} — POST-MORTEM`;
-  const accuracy    = commandsUsed.length > 0
-    ? Math.min(100, Math.round((commandsUsed.filter(Boolean).length / Math.max(commandsUsed.length, 1)) * 100))
+  // Accuracy = fraction of submitted commands that hit an expected keyword.
+  // 0% when nothing was submitted; 100% when every submission was a hit.
+  const totalSubmitted = allCommandsSubmitted.length;
+  const correctCount   = commandsUsed.length;
+  const accuracy       = totalSubmitted > 0
+    ? Math.round((correctCount / totalSubmitted) * 100)
     : 0;
 
   const realWorld = REAL_WORLD_CONTEXT[missionId] ?? REAL_WORLD_CONTEXT['mission-101'];
@@ -93,7 +101,7 @@ const MissionDebrief: React.FC<MissionDebriefProps> = ({
         const response = await aiService.complete({
           agent: 'debrief',
           systemPrompt: SYSTEM_PROMPTS.debrief(learnerProfile),
-          userMessage: `Mission outcome: ${outcome.toUpperCase()}. Domain: ${learnerProfile.domain}. Commands used: ${commandsUsed.join(', ') || 'none'}. Time taken: ${timeTaken}s. Level: ${learnerProfile.actualLevel}. Write a 3–4 sentence post-mortem that covers what the analyst did well, what they missed, and one specific improvement.`,
+                  userMessage: `Mission outcome: ${outcome.toUpperCase()}. Domain: ${learnerProfile.domain}. Correct commands: ${commandsUsed.join(', ') || 'none'}. All submitted commands: ${allCommandsSubmitted.join(', ') || 'none'}. Accuracy: ${accuracy}%. Time taken: ${timeTaken}s. Level: ${learnerProfile.actualLevel}. Write a 3–4 sentence post-mortem that covers what the analyst did well, what they missed, and one specific improvement.`,
           learnerProfile,
         });
         
@@ -229,7 +237,7 @@ const MissionDebrief: React.FC<MissionDebriefProps> = ({
         >
           {[
             { icon: <Clock size={16} className="text-accent" />, label: 'TIME', value: `${timeTaken}s` },
-            { icon: <Terminal size={16} className="text-accent" />, label: 'COMMANDS', value: commandsUsed.length },
+            { icon: <Terminal size={16} className="text-accent" />, label: 'COMMANDS', value: allCommandsSubmitted.length },
             { icon: <Target size={16} className={isSuccess ? 'text-accent' : 'text-red-400'} />, label: 'ACCURACY', value: `${accuracy}%` },
           ].map(({ icon, label, value }) => (
             <div key={label} className="bg-white/[0.03] border border-white/5 rounded-xl p-5 flex flex-col items-center gap-2 text-center">

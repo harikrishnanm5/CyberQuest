@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Network, ShieldAlert, Bug, Globe, Loader2, Award, ChevronRight } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
+import { cn, extractJson } from '@/src/lib/utils';
 import * as aiService from '../services/aiService';
 import { SYSTEM_PROMPTS } from '../services/prompts';
 import { useLearnerProfile } from '../store/learnerProfile';
@@ -202,8 +202,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         });
 
         try {
-          const cleanedJson = fullText.replace(/```json|```/g, '').trim();
-          const parsed = JSON.parse(cleanedJson);
+          const parsed = extractJson<any>(fullText);
+          if (!parsed) throw new Error("Invalid profile JSON");
           setProfile(parsed);
           dispatch({ type: 'SET_ACTUAL_LEVEL', payload: mapLevelToActual(parsed.level, selectedLevel) });
           setStep('result');

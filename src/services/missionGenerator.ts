@@ -1,5 +1,6 @@
 import * as aiService from './aiService';
 import { SYSTEM_PROMPTS } from './prompts';
+import { extractJson } from '../lib/utils';
 
 export interface GeneratedMission {
   targetOrgType: string;
@@ -12,9 +13,9 @@ export interface GeneratedMission {
 
 export const generateMission = async (domain: string, learnerProfile: any): Promise<GeneratedMission> => {
   try {
-    const prompt = `Generate a cyber-security mission for a ${learnerProfile.actualLevel || 'beginner'} student in the ${domain} domain. 
+    const prompt = `Generate a cyber-security mission for a ${learnerProfile.actualLevel || 'beginner'} student in the ${domain} domain.
     The mission should be realistic and educational.
-    
+
     OUTPUT FORMAT: JSON only.
     {
       "targetOrgType": string (e.g., "Financial Services API"),
@@ -32,9 +33,12 @@ export const generateMission = async (domain: string, learnerProfile: any): Prom
       learnerProfile
     });
 
-    const cleanedJson = response.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleanedJson);
-    
+    const parsed = extractJson<GeneratedMission>(response);
+
+    if (!parsed) {
+      throw new Error("AI response did not contain valid mission JSON.");
+    }
+
     return {
       targetOrgType: parsed.targetOrgType || 'Unknown Sector',
       attackVector: parsed.attackVector || 'Unknown Vector',

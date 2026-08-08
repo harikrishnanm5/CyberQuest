@@ -6,6 +6,16 @@
 /**
  * RAG Service for CyberQuest.
  * Queries Qdrant threat_intel collection for relevant cybersecurity context.
+ *
+ * STATUS: Currently disabled by the caller (aiService.complete) pending two issues:
+ *   1. Collection-name mismatch — this file queries "threat_intel", but
+ *      scraper/threat_scraper.py writes to "threats". Results are always empty.
+ *   2. No real embedding — the search vector is a 384-dim zero array, so
+ *      even with a matching collection, cosine ranking is meaningless.
+ *
+ * Until those are fixed, the pipeline is decorative only. The scraper and
+ * query_threats.py files remain so the data layer can be repaired without
+ * rebuilding from scratch.
  */
 
 export const queryThreats = async (domain: string, difficulty: string): Promise<string> => {

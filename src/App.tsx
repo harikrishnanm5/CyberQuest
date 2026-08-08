@@ -5,7 +5,6 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { Taskbar } from './components/Taskbar';
-import { Terminal } from './components/Terminal';
 import { ActiveThreats } from './components/ActiveThreats';
 import { BootScreen } from './components/BootScreen';
 import MissionBriefing from './components/MissionBriefing';
@@ -13,7 +12,7 @@ import MissionDebrief from './components/MissionDebrief';
 import { MissionBar } from './components/MissionBar';
 import { SkillTracker } from './components/SkillTracker';
 import { Onboarding } from './components/Onboarding';
-import MissionTerminal from './components/MissionTerminal';
+import { MissionTerminal } from './components/MissionTerminal';
 import { MailClient } from './components/MailClient';
 import { NetworkMap } from './components/NetworkMap';
 import { SystemLogs } from './components/SystemLogs';
@@ -126,10 +125,12 @@ export default function App() {
   const [profile, setProfile]             = useState<any>(null);
   const [currentMission, setCurrentMission] = useState<MissionData | null>(null);
   const [currentTab, setCurrentTab]       = useState<'terminal' | 'mail' | 'network' | 'logs'>('terminal');
+  const [timeTaken, setTimeTaken]         = useState<number>(0);
 
   // Terminal session tracking (for debrief)
   const missionStartTime  = useRef<number>(Date.now());
   const commandsUsed      = useRef<string[]>([]);
+  const allCommandsRef    = useRef<string[]>([]);
 
   const missionId = currentMission ? `mission-${currentMission.missionIdSuffix}` : 'mission-000';
 
@@ -164,6 +165,7 @@ export default function App() {
   const handleAcceptMission = useCallback(() => {
     missionStartTime.current = Date.now();
     commandsUsed.current = [];
+    allCommandsRef.current = [];
     setScreen('booting');
   }, []);
 
@@ -174,9 +176,16 @@ export default function App() {
 
   // Step 6 → 7: Mission ends from terminal
   const handleMissionEnd = useCallback((commands: string[]) => {
-    commandsUsed.current = commands;
+    const expected = (currentMission?.expectedCommands ?? []).map(c => c.toLowerCase());
+    const correctCommands = commands.filter(cmd =>
+      expected.some(e => cmd.toLowerCase().includes(e))
+    );
+    allCommandsRef.current = commands;
+    commandsUsed.current = correctCommands;
+    const elapsed = Math.round((Date.now() - missionStartTime.current) / 1000);
+    setTimeTaken(elapsed);
     setScreen('debrief');
-  }, []);
+  }, [currentMission]);
 
   // Step 7 → 5: Next mission (loop)
   const handleNextMission = useCallback(() => {
@@ -189,9 +198,6 @@ export default function App() {
     setMissionNumber(1);
     setScreen('onboarding');
   }, []);
-
-  // Time elapsed since mission started
-  const timeTaken = Math.round((Date.now() - missionStartTime.current) / 1000);
 
   // ── Shared fade transition ────────────────────────────────────────────────
   const fadeVariants = {
@@ -267,7 +273,7 @@ export default function App() {
                   
                   <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 opacity-40">
                     <div className="flex items-center gap-2 text-[9px] font-bold text-gray-400">
-                      <Zap size={10} /> INJECTING RAG CONTEXT
+                      <Zap size={10} /> SYNTHESIZING SCENARIO
                     </div>
                     <div className="flex items-center gap-2 text-[9px] font-bold text-gray-400">
                       <Shield size={10} /> CALIBRATING DIFFICULTY
@@ -355,6 +361,8 @@ export default function App() {
                         <div className="flex-1 flex overflow-hidden min-h-0">
                           <MissionTerminal
                             title={`operator@cipher-os:~/mission-${missionNumber}`}
+                            expectedCommands={currentMission?.expectedCommands ?? []}
+                            onMissionEnd={handleMissionEnd}
                           />
                         </div>
                       </motion.div>
@@ -425,6 +433,7 @@ export default function App() {
               outcome="success"
               missionId={missionId}
               commandsUsed={commandsUsed.current}
+              allCommandsSubmitted={allCommandsRef.current}
               timeTaken={timeTaken}
               onNextMission={handleNextMission}
               onReturnToBase={handleReturnToBase}
